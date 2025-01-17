@@ -1,4 +1,4 @@
-package create
+package wallet
 
 type KeyType int16
 
