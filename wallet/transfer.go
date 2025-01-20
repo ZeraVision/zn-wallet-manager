@@ -12,11 +12,11 @@ import (
 
 type Inputs struct {
 	KeyType            KeyType
-	PublicKey          string  // Base 58 encoded
-	PrivateKey         string  // Base 58 encoded
-	Amount             float64 // full coins (not parts)
-	FeePercent         float32 // 0-100 max 6 digits of precision
-	ContractFeePercent float32 // 0-100 max 6 digits of precision
+	PublicKey          string   // Base 58 encoded
+	PrivateKey         string   // Base 58 encoded
+	Amount             float64  // full coins (not parts)
+	FeePercent         float32  // 0-100 max 6 digits of precision
+	ContractFeePercent *float32 // 0-100 max 6 digits of precision
 }
 
 // CreateCoinTxn creates a CoinTXN protobuf message for a given set of inputs and outputs
@@ -71,6 +71,18 @@ func CreateCoinTxn(inputs map[string]Inputs, outputs map[string]float64, symbol,
 		return nil, err
 	}
 
+	// Step 7: Marshal the vote with the signature
+	byteDataWithSig, err := proto.Marshal(txn)
+	if err != nil {
+		return nil, fmt.Errorf("error while serializing txn: %v", err)
+	}
+
+	// Step 8: Hash the serialized data with the signature
+	hash := transcode.SHA3_256(byteDataWithSig)
+
+	// Step 9: Add the hash
+	txn.Base.Hash = hash
+
 	return txn, nil
 }
 
@@ -99,7 +111,10 @@ func processInputs(inputs map[string]Inputs, parts *big.Int) ([]*pb.InputTransfe
 			return nil, nil, nil, nil, fmt.Errorf("could not decode public key: %v", err)
 		}
 
-		amountParts := new(big.Int).Mul(big.NewInt(int64(input.Amount)), parts)
+		amountPartsBigF := new(big.Float).Mul(big.NewFloat(input.Amount), big.NewFloat(float64(parts.Int64())))
+
+		amountParts := new(big.Int)
+		amountParts, _ = amountPartsBigF.Int(amountParts)
 
 		inputTransfers = append(inputTransfers, &pb.InputTransfers{
 			Index:      index,
@@ -180,13 +195,14 @@ func signTransaction(txn *pb.CoinTXN, keys map[string]keyTracking) (*pb.CoinTXN,
 		return nil, fmt.Errorf("could not marshal transaction: %v", err)
 	}
 
-	for i, auth := range txn.Auth.PublicKey {
+	for _, auth := range txn.Auth.PublicKey {
 		if key, ok := keys[transcode.Base58Encode(auth.Single)]; ok {
 			signature, err := Sign(key.PrivateKey, txnBytes, key.KeyType)
 			if err != nil {
 				return nil, fmt.Errorf("could not sign transaction: %v", err)
 			}
-			txn.Auth.Signature[i] = signature
+			txn.Auth.Signature = append(txn.Auth.Signature, signature)
+			//txn.Auth.Signature[i] = signature
 		} else {
 			return nil, fmt.Errorf("could not find private key for public key: %s", transcode.Base58Encode(auth.Single))
 		}
