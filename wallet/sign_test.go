@@ -1,34 +1,36 @@
 package wallet
 
 import (
+	"math/big"
 	"testing"
 
 	"google.golang.org/protobuf/proto"
 )
 
 func TestEd25519(t *testing.T) {
-	testSignature(t, "A_c_FPXdqFTeqC3rHCaAAXmXbunb8C5BbRZEZNGjt23dAVo7", "2ap5CkCekErkqJ4UuSGAW1BmRRRNr8hXaebudv1j8TY6mJMSsbnniakorFGmetE4aegsyQAD8WX1N8Q2Y45YEBDs", ED25519)
+	testSignature(t, "8ZfvifzSPMhhhivnH6NtaBXcmF3vsSaiB8KBULTetBcR", "A_c_FPXdqFTeqC3rHCaAAXmXbunb8C5BbRZEZNGjt23dAVo7", "2ap5CkCekErkqJ4UuSGAW1BmRRRNr8hXaebudv1j8TY6mJMSsbnniakorFGmetE4aegsyQAD8WX1N8Q2Y45YEBDs", ED25519)
 }
 
 func TestEd448(t *testing.T) {
-	testSignature(t, "B_c_8TZAaoUWbGvkxaWdWBXJ3mVHXVXLDJgtbeexkBzj5ySjpru7yZvfuKwGGHt2gtFpQfQCaRnBPU43bV", "HYkGjJY8hjEAxLe1UFzEni5mANwbvTquvTV6mgMT6Qp2Ee1CFYC8tVNfdqyJ9ZwnwsYRUwfMg15suW", ED448)
+	testSignature(t, "Hv3KUwrmR8C8XVSxuJFJrQqeDixeDnakUTkUUMZkFCUS", "B_c_8TZAaoUWbGvkxaWdWBXJ3mVHXVXLDJgtbeexkBzj5ySjpru7yZvfuKwGGHt2gtFpQfQCaRnBPU43bV", "HYkGjJY8hjEAxLe1UFzEni5mANwbvTquvTV6mgMT6Qp2Ee1CFYC8tVNfdqyJ9ZwnwsYRUwfMg15suW", ED448)
 }
 
-func testSignature(t *testing.T, testPublic, testPrivate string, keyType KeyType) {
+func testSignature(t *testing.T, address, testPublic, testPrivate string, keyType KeyType) {
 
-	inputs := map[string]Inputs{}
+	inputs := []Inputs{}
 
-	inputs["testinput1"] = Inputs{
+	inputs = append(inputs, Inputs{
+		B58Address: address,
 		KeyType:    keyType,
 		PublicKey:  testPublic,
 		PrivateKey: testPrivate,
-		Amount:     1.01,
+		Amount:     big.NewFloat(1.01),
 		FeePercent: 100,
-	}
+	})
 
-	outputs := map[string]float64{}
+	outputs := map[string]*big.Float{}
 
-	outputs["outputAddr1"] = 1.01
+	outputs["outputAddr1"] = big.NewFloat(1.01)
 
 	symbol := "$ZRA+0000"
 	baseFeeID := "$ZRA+0000"

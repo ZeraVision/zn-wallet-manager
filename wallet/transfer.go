@@ -1,22 +1,28 @@
 package wallet
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"math/big"
+	"os"
 
 	pb "github.com/ZeraVision/go-zera-network/grpc/protobuf"
 	"github.com/ZeraVision/zn-wallet-manager/transcode"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Inputs struct {
+	B58Address         string
 	KeyType            KeyType
-	PublicKey          string   // Base 58 encoded
-	PrivateKey         string   // Base 58 encoded
-	Amount             float64  // full coins (not parts)
-	FeePercent         float32  // 0-100 max 6 digits of precision
-	ContractFeePercent *float32 // 0-100 max 6 digits of precision
+	PublicKey          string     // Base 58 encoded
+	PrivateKey         string     // Base 58 encoded
+	Amount             *big.Float // full coins (not parts)
+	FeePercent         float32    // 0-100 max 6 digits of precision
+	ContractFeePercent *float32   // 0-100 max 6 digits of precision
 }
 
 // CreateCoinTxn creates a CoinTXN protobuf message for a given set of inputs and outputs
@@ -27,7 +33,7 @@ type Inputs struct {
 // baseFeeAmountParts: fee amount for the base fee in *parts* (ex 1000000000 = 1 ZRA)
 // contractFeeID: fee id for the contract fee (ex $ZRA+0000)
 // contractFeeAmountParts: fee amount for the contract fee in *parts* (ex 1000000000 = 1 ZRA)
-func CreateCoinTxn(inputs map[string]Inputs, outputs map[string]float64, symbol, baseFeeID, baseFeeAmountParts string, contractFeeID, contractFeeAmountParts *string) (*pb.CoinTXN, error) {
+func CreateCoinTxn(inputs []Inputs, outputs map[string]*big.Float, symbol, baseFeeID, baseFeeAmountParts string, contractFeeID, contractFeeAmountParts *string) (*pb.CoinTXN, error) {
 	// TODO parts lookup on zv indexer or other source
 	parts := big.NewInt(1_000_000_000) // Example: amount of parts for ZRA
 
@@ -45,7 +51,7 @@ func CreateCoinTxn(inputs map[string]Inputs, outputs map[string]float64, symbol,
 
 	// Check to see if inputs and outputs match
 	if totalInput.Cmp(totalOutput) != 0 {
-		return nil, fmt.Errorf("total input does not equal total output: %s != %s", totalInput.Text(10), totalOutput.Text(10))
+		return nil, fmt.Errorf("total input does not equal total output: %s != %s", totalInput.String(), totalOutput.String())
 	}
 
 	// Step 3: Build Transfer Authentication
@@ -98,11 +104,11 @@ type authTracking struct {
 }
 
 // Helper Function: Process Inputs
-func processInputs(inputs map[string]Inputs, parts *big.Int) ([]*pb.InputTransfers, []authTracking, map[string]keyTracking, *big.Int, error) {
+func processInputs(inputs []Inputs, parts *big.Int) ([]*pb.InputTransfers, []authTracking, map[string]keyTracking, *big.Float, error) {
 	var inputTransfers []*pb.InputTransfers
 	var auth []authTracking
 	keys := map[string]keyTracking{}
-	totalInput := big.NewInt(0)
+	totalInput := big.NewFloat(0)
 	index := uint64(0)
 
 	for _, input := range inputs {
@@ -111,18 +117,15 @@ func processInputs(inputs map[string]Inputs, parts *big.Int) ([]*pb.InputTransfe
 			return nil, nil, nil, nil, fmt.Errorf("could not decode public key: %v", err)
 		}
 
-		amountPartsBigF := new(big.Float).Mul(big.NewFloat(input.Amount), big.NewFloat(float64(parts.Int64())))
-
-		amountParts := new(big.Int)
-		amountParts, _ = amountPartsBigF.Int(amountParts)
+		amountPartsBigF := new(big.Float).Mul(input.Amount, big.NewFloat(float64(parts.Int64())))
 
 		inputTransfers = append(inputTransfers, &pb.InputTransfers{
 			Index:      index,
-			Amount:     amountParts.Text(10),
+			Amount:     amountPartsBigF.String(),
 			FeePercent: uint32(input.FeePercent * 1_000_000),
 		})
 
-		nonce := uint64(0) // Placeholder for nonce retrieval
+		nonce := GetNonce(input.B58Address)
 
 		auth = append(auth, authTracking{
 			PublicKeyBytes: pubKeyByte,
@@ -135,7 +138,7 @@ func processInputs(inputs map[string]Inputs, parts *big.Int) ([]*pb.InputTransfe
 			PrivateKey: input.PrivateKey,
 		}
 
-		totalInput.Add(totalInput, amountParts)
+		totalInput.Add(totalInput, amountPartsBigF)
 		index++
 	}
 
@@ -143,9 +146,9 @@ func processInputs(inputs map[string]Inputs, parts *big.Int) ([]*pb.InputTransfe
 }
 
 // Helper Function: Process Outputs
-func processOutputs(outputs map[string]float64, parts *big.Int) ([]*pb.OutputTransfers, *big.Int, error) {
+func processOutputs(outputs map[string]*big.Float, parts *big.Int) ([]*pb.OutputTransfers, *big.Float, error) {
 	var outputsTransfers []*pb.OutputTransfers
-	totalOutput := big.NewInt(0)
+	totalOutput := big.NewFloat(0)
 
 	for address, amount := range outputs {
 		decodedAddr, err := transcode.Base58Decode(address)
@@ -153,17 +156,14 @@ func processOutputs(outputs map[string]float64, parts *big.Int) ([]*pb.OutputTra
 			return nil, nil, fmt.Errorf("could not decode address: %v", err)
 		}
 
-		bigF := big.NewFloat(amount)
-		bigFParts := new(big.Float).Mul(bigF, new(big.Float).SetInt(parts))
-		bigIParts := new(big.Int)
-		bigFParts.Int(bigIParts)
+		bigFParts := new(big.Float).Mul(amount, new(big.Float).SetInt(parts))
 
 		outputsTransfers = append(outputsTransfers, &pb.OutputTransfers{
 			WalletAddress: decodedAddr,
-			Amount:        bigIParts.Text(10),
+			Amount:        bigFParts.String(),
 		})
 
-		totalOutput.Add(totalOutput, bigIParts)
+		totalOutput.Add(totalOutput, bigFParts)
 	}
 
 	return outputsTransfers, totalOutput, nil
@@ -202,10 +202,41 @@ func signTransaction(txn *pb.CoinTXN, keys map[string]keyTracking) (*pb.CoinTXN,
 				return nil, fmt.Errorf("could not sign transaction: %v", err)
 			}
 			txn.Auth.Signature = append(txn.Auth.Signature, signature)
-			//txn.Auth.Signature[i] = signature
 		} else {
 			return nil, fmt.Errorf("could not find private key for public key: %s", transcode.Base58Encode(auth.Single))
 		}
 	}
 	return txn, nil
+}
+
+// struct for client implementation of grpcs
+type NetworkClient struct {
+	client pb.TXNServiceClient
+}
+
+// constructor for client implementation of grpcs
+func NewNetworkClient(conn *grpc.ClientConn) *NetworkClient {
+	client := pb.NewTXNServiceClient(conn)
+	return &NetworkClient{client: client}
+}
+
+func SendCoinTXN(txn *pb.CoinTXN) (*emptypb.Empty, error) {
+	// Create a gRPC connection to the server
+	conn, err := grpc.Dial(os.Getenv("GRPC_ADDR")+":50052", grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("Failed to connect to the server: %v", err)
+		return nil, err
+	}
+	defer conn.Close()
+
+	// Create a new instance of ValidatorNetworkClient
+	client := NewNetworkClient(conn)
+
+	response, err := client.client.Coin(context.Background(), txn)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
 }
