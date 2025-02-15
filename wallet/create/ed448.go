@@ -5,30 +5,27 @@ import (
 	"fmt"
 
 	generichash "github.com/GoKillers/libsodium-go/cryptogenerichash"
-	"github.com/GoKillers/libsodium-go/cryptosign"
 	"github.com/ZeraVision/zn-wallet-manager/transcode"
+	"github.com/ZeraVision/zn-wallet-manager/wallet"
+	"github.com/cloudflare/circl/sign/ed448"
 )
 
-// GenerateKeyPairLibsodium uses libsodium to generate an Ed25519 key pair from a seed.
-func GenerateKeyPairLibsodium(seed []byte) ([]byte, []byte, error) {
-	if len(seed) != 32 {
-		return nil, nil, errors.New("seed must be exactly 32 bytes")
+// GenerateKeyPairEd448 generates an Ed448 key pair using circl.
+func GenerateKeyPairEd448(seed []byte) ([]byte, []byte, error) {
+	if len(seed) != ed448.SeedSize {
+		return nil, nil, fmt.Errorf("seed must be exactly %d bytes", ed448.SeedSize)
 	}
 
-	// Generate key pair using libsodium
-	privateKey, publicKey, ret := cryptosign.CryptoSignSeedKeyPair(seed)
-	if ret != 0 {
-		return nil, nil, errors.New("libsodium: failed to generate key pair")
-	}
+	// Generate private and public key
+	privateKey := ed448.NewKeyFromSeed(seed)
+	publicKey := privateKey.Public().(ed448.PublicKey)
 
-	return privateKey, publicKey, nil
+	return privateKey.Seed(), publicKey[:], nil
 }
 
-// GenerateEd25519 generates an Ed25519 key pair and hashes the public key with the specified algorithm.
-func GenerateEd25519(mnemonic string, hashAlg HashType, keyType KeyType) (string, string, string, error) {
-
-	// If empty, generate random entropy not based on BIP39
-	if mnemonic == "" {
+// GenerateEd448 generates an Ed448 key pair and hashes the public key with the specified algorithm.
+func GenerateEd448(mnemonic string, hashAlg wallet.HashType, keyType wallet.KeyType) (string, string, string, error) {
+	if len(mnemonic) < 12 {
 		var err error
 		mnemonic, err = GenerateRandomString(1000)
 
@@ -37,16 +34,17 @@ func GenerateEd25519(mnemonic string, hashAlg HashType, keyType KeyType) (string
 		}
 	}
 
-	seed, retCode := generichash.CryptoGenericHash(32, []byte(mnemonic), nil)
+	seed, retCode := generichash.CryptoGenericHash(ed448.SeedSize, []byte(mnemonic), nil)
 
 	if retCode != 0 {
 		return "", "", "", errors.New("libsodium: failed to generate seed")
 	}
 
-	privateKey, rawPublicKey, err := GenerateKeyPairLibsodium(seed)
+	privateKey, rawPublicKey, err := GenerateKeyPairEd448(seed)
 	if err != nil {
 		return "", "", "", err
 	}
+
 	publicKey, b58Address, err := GetWalletAddress(rawPublicKey, hashAlg, keyType)
 	if err != nil {
 		return "", "", "", err
@@ -75,11 +73,9 @@ func GenerateEd25519(mnemonic string, hashAlg HashType, keyType KeyType) (string
 
 	b58Private := transcode.Base58Encode(privateKey)
 
-	// logs
 	fmt.Println("Mnemonic:", mnemonic)
 	fmt.Println("Private Key (Base58):", b58Private)
 	fmt.Println("Public Key (Base58):", b58PublicKey)
 	fmt.Println("Address (B58):", b58Address)
-
 	return b58Private, b58PublicKey, b58Address, nil
 }
