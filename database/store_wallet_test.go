@@ -69,8 +69,7 @@ func TestInsertWallet(t *testing.T) {
 	address := "test_address"
 	publicKey := "test_public_key"
 	privateKey := "test_private_key"
-	kmsString := "test_kms_id"
-	kmsID := &kmsString
+	kmsID := func(s string) *string { return &s }("test_kms_id")
 
 	var secretKey [32]byte
 	if _, err := rand.Read(secretKey[:]); err != nil {
