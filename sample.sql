@@ -1,14 +1,7 @@
 CREATE TABLE wallets (
-    address TEXT PRIMARY KEY,
-    public_key TEXT NOT NULL,
-    private_key TEXT NOT NULL -- update this to use a secret to encrypt / decrypt the private key as needed
+    address TEXT PRIMARY KEY, -- TODO secure according to your requirements (see InsertWallet func)
+    public_key TEXT NOT NULL, -- TODO secure according to your requirements (see InsertWallet func)
+    private_key TEXT NOT NULL, -- TODO secure according to your requirements (see InsertWallet func)
+    kms_id TEXT,
+    empty BOOLEAN NOT NULL DEFAULT TRUE,
 );
-
-CREATE TABLE wallet_balances (
-    address TEXT NOT NULL,
-    coin_symbol VARCHAR(10) NOT NULL,
-    amount BIGINT NOT NULL, -- amount parts
-    CONSTRAINT fk_wallet FOREIGN KEY (address) REFERENCES wallets(address) ON DELETE CASCADE,
-    PRIMARY_KEY (address, coin_symbol)
-);
-

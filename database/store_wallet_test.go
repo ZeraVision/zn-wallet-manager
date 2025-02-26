@@ -69,18 +69,24 @@ func TestInsertWallet(t *testing.T) {
 	address := "test_address"
 	publicKey := "test_public_key"
 	privateKey := "test_private_key"
+	kmsString := "test_kms_id"
+	kmsID := &kmsString
+
 	var secretKey [32]byte
 	if _, err := rand.Read(secretKey[:]); err != nil {
 		t.Fatalf("failed to generate secret key: %v", err)
 	}
 
+	// Create an instance of EncryptedKeyMatcher
+	privateKeyMatcher := EncryptedKeyMatcher{privateKey: privateKey, secretKey: secretKey}
+
 	// Set expectation using the custom matcher for the encrypted private key.
-	mock.ExpectExec(`INSERT INTO wallets \(address, public_key, private_key\) VALUES \(\$1, \$2, \$3\)`).
-		WithArgs(address, publicKey, EncryptedKeyMatcher{privateKey: privateKey, secretKey: secretKey}).
+	mock.ExpectExec(`INSERT INTO wallets \(address, public_key, private_key, kms_id\) VALUES \(\$1, \$2, \$3, \$4\)`).
+		WithArgs(address, publicKey, privateKeyMatcher, kmsID). // Pass matcher instance, not inline struct
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	ctx := context.Background()
-	err = InsertWallet(ctx, mockDB, address, publicKey, privateKey, secretKey)
+	err = InsertWallet(ctx, mockDB, address, publicKey, privateKey, secretKey, kmsID)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
