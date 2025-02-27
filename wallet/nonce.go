@@ -20,7 +20,7 @@ func GetNonce(address string) uint64 {
 	}
 
 	client := &http.Client{Transport: tr}
-	url := fmt.Sprintf("https://indexer.zera.vision/store?requestType=getNextNonce&address=%s", address)
+	url := fmt.Sprintf(os.Getenv("INDEXER_URL")+"/store?requestType=getNextNonce&address=%s", address)
 
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
@@ -29,7 +29,7 @@ func GetNonce(address string) uint64 {
 	}
 
 	req.Header.Add("Target", "explorer")
-	req.Header.Add("authorization", os.Getenv("API_KEY"))
+	req.Header.Add("authorization", "Api-Key "+os.Getenv("INDEXER_API_KEY"))
 
 	resp, err := client.Do(req)
 	if err != nil {
