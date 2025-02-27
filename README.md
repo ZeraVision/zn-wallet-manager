@@ -17,6 +17,15 @@ The following gobinding(s) are required in your environment:
 
 To set up the environment, you can either use Docker (as described below) or install dependencies locally.
 
+## Intended Design
+This application is intended to satisfy most use cases but requires developers to do "last-mile" customizability for their spefic needs and use cases.
+
+This application takes you to the final functions of the webhook, by default parameterizing deposit/withdraw functions with a simple to use object.
+
+Developers will want to consider:
+1. Integrating their KMS / secure storage system into the application.
+2. Specific deposit / withdrawl functionality customized to your needs (ie email, notifications, database updates)
+
 ## Configuration
 To configure the application, provide the following environment variables:
 
