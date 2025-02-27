@@ -59,3 +59,8 @@ func Close() {
 		log.Println("Database connection closed.")
 	}
 }
+
+// Get returns the Database object with the real connection
+func Get() Database {
+	return pool
+}

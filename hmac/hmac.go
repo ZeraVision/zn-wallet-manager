@@ -46,20 +46,22 @@ func Verify(secretKey string, data interface{}, providedSignature string) (bool,
 }
 
 // VerifyRequestBody reads and verifies the request body and HMAC signature
-func VerifyRequestBody(w http.ResponseWriter, r *http.Request, txn interface{}) (bool, error) {
+func VerifyRequestBody(w http.ResponseWriter, r *http.Request, txn interface{}) bool {
 	// Read the request body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "Error reading request body", http.StatusBadRequest)
-		return false, err
+		log.Printf("error reading request body: %v", err)
+		http.Error(w, "error reading request body", http.StatusBadRequest)
+		return false
 	}
 	defer r.Body.Close()
 
 	// Extract the HMAC signature from headers
 	sigHeader := r.Header.Get("X-Signature")
 	if sigHeader == "" {
+		log.Printf("missing signature")
 		http.Error(w, "missing signature", http.StatusUnauthorized)
-		return false, err
+		return false
 	}
 
 	// Get only the hash value after "sha256="
@@ -70,7 +72,7 @@ func VerifyRequestBody(w http.ResponseWriter, r *http.Request, txn interface{}) 
 	if err != nil {
 		log.Printf("error unmarshalling JSON: %v", err)
 		http.Error(w, "invalid JSON format", http.StatusBadRequest)
-		return false, err
+		return false
 	}
 
 	// Verify HMAC signature
@@ -78,14 +80,14 @@ func VerifyRequestBody(w http.ResponseWriter, r *http.Request, txn interface{}) 
 	if err != nil {
 		log.Printf("error verifying hmac signature: %v", err)
 		http.Error(w, "error verifying hmac signature", http.StatusBadRequest)
-		return false, err
+		return false
 	}
 
 	if !verified {
 		log.Println("hmac signature verification failed")
 		http.Error(w, "hmac signature verification failed", http.StatusUnauthorized)
-		return false, err
+		return false
 	}
 
-	return true, nil
+	return true
 }
