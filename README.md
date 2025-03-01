@@ -1,5 +1,5 @@
 # zn-wallet-manager
-ZERA Network (zn) Wallet Manager is an open-source repository designed to facilitate the management of incoming and outgoing CoinTXN transactions on the ZERA Network. It supports both uniquely generated wallets and memo-based configurations, making it a versatile solution for developers building financial applications or blockchain-based platforms that may require managable and scalable deposits and withdrawls.
+ZERA Network (zn) Wallet Manager is an open-source repository designed to facilitate the management of incoming and outgoing CoinTXN / MintTXN transactions on the ZERA Network. It supports both uniquely generated wallets and memo-based (incoming only) configurations, making it a versatile solution for developers building financial applications or blockchain-based platforms that may require managable and scalable deposits and withdrawls.
 
 ## Use Cases
 There are various use cases that this repository can help satisfy.
