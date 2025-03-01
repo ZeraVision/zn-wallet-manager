@@ -1,6 +1,19 @@
 # zn-wallet-manager
 ZERA Network (zn) Wallet Manager is an open-source repository designed to facilitate the management of incoming and outgoing CoinTXN / MintTXN transactions on the ZERA Network. It supports both uniquely generated wallets and memo-based (incoming only) configurations, making it a versatile solution for developers building financial applications or blockchain-based platforms that may require managable and scalable deposits and withdrawls.
 
+## Note About Address / Memo Deposists
+Generally, address based is reccomended as it limits errors and complexities the end user.
+
+For **deposits only**, memo support is added. If you choose to use memos, it is integral that **you check** to make sure it is to an authorized address. In theory this means that a deposit webhook could be sent and if you do not check the to address being one of your authorized addresses you may think you have a deposit when you don't.
+
+In most cases, if the memo is present, you will receive a webhook (covered in more detail below).
+
+There are specific circumstances (for security reasons) where the webhook will not be sent to you:
+1. If it is a withdrawl
+2. If the transaction is a x-to-many transaction and the memo is mistakenly included in the base memo and not the output memo. (Generally unlikely to occur)
+
+In the unlikely event of user error causing 2, manual review will be required by your support team.
+
 ## Use Cases
 There are various use cases that this repository can help satisfy.
 
