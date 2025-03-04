@@ -9,8 +9,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var testAddr = "GLoZ2hgtqUBnjoPkDQ4pYbVbJ7CLmvfUSrrmGpGq7zJK"
-
 func init() {
 	godotenv.Load("../.env")
 
